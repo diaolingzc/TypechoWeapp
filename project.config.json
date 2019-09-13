@@ -1,0 +1,60 @@
+{
+	"description": "Typecho Weapp",
+	"setting": {
+		"urlCheck": false,
+		"es6": false,
+		"postcss": false,
+		"minified": false,
+		"newFeature": true,
+		"autoAudits": false,
+		"checkInvalidKey": true
+	},
+	"compileType": "miniprogram",
+	"appid": "wxed41d435a8bca22e",
+	"projectname": "typecho_weapp",
+	"miniprogramRoot": "dist/",
+	"simulatorType": "wechat",
+	"simulatorPluginLibVersion": {},
+	"condition": {
+		"search": {
+			"current": -1,
+			"list": []
+		},
+		"conversation": {
+			"current": -1,
+			"list": []
+		},
+		"plugin": {
+			"current": -1,
+			"list": []
+		},
+		"game": {
+			"list": []
+		},
+		"miniprogram": {
+			"current": 2,
+			"list": [
+				{
+					"id": -1,
+					"name": "pages/content/show",
+					"pathName": "pages/content/show",
+					"query": "cid=110",
+					"scene": null
+				},
+				{
+					"id": -1,
+					"name": "pages/rankling/rankling",
+					"pathName": "pages/rankling/rankling",
+					"query": "",
+					"scene": null
+				},
+				{
+					"id": -1,
+					"name": "pages/auth/login",
+					"pathName": "pages/auth/login",
+					"scene": null
+				}
+			]
+		}
+	}
+}

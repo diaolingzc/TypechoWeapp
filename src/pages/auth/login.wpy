@@ -1,0 +1,158 @@
+<template>
+  <view class="bg-white auth-container">
+    <view class="logo">
+      <image
+        class="logo-img"
+        src="/images/favicon.png"
+      />
+    </view>
+    <view class="logo-title text-xl text-black text-bold">种花家的云璃ღ</view>
+    <view class="logo-text text-black text-lg">月冷千山 雪莲花落 片片如星雨</view>
+    <view class="auth-content">
+      <view class="text-df padding">该程序将获得以下授权</view>
+      <view class="text-sm padding text-grey">- 获得您的公开信息（头像、昵称等）</view>
+    </view>
+    <view class="auth-button">
+      <button
+        class="cu-btn round line-blue"
+        open-type="getUserInfo"
+        bindgetuserinfo="handleScopeUserInfo"
+      >
+        立即授权
+      </button>
+    </view>
+    <view class="cu-modal {{modal_show?'show':''}}">
+      <view class="cu-dialog">
+        <view class="cu-bar bg-white justify-end">
+          <view class="content">种花家的云璃ღ</view>
+          <view
+            class="action"
+            bindtap="handleModal"
+          >
+            <text class="cuIcon-close text-red"></text>
+          </view>
+        </view>
+        <view class="padding-xl">回复、点赞需获取openId，若需操作请授权。</view>
+      </view>
+    </view>
+    <view
+      class='cu-load load-modal'
+      wx:if="{{loadModal}}"
+    >
+      <image
+        src='/images/favicon.png'
+        class='png'
+        mode='aspectFit'
+      ></image>
+      <view class='gray-text'>加载中...</view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from 'wepy'
+import api from '@/utils/api'
+
+export default class Login extends wepy.page {
+  data = {
+    modal_show: false,
+    loadModal: false
+  };
+
+  async handleScopeUserInfo(res) {
+    if (res.detail.userInfo) {
+      let authResponse = await api.login(res.detail.userInfo)
+
+      // 登录成功返回上一页
+      if (authResponse.statusCode === 201) {
+        wepy.navigateBack()
+      }
+    } else {
+      this.modal_show = true
+    }
+  }
+
+  async onLoad(options) {
+    try {
+      // 打开页面自动调用一次登录
+
+      let authSetting = await wepy.getSetting()
+
+      if (authSetting.authSetting['scope.userInfo']) {
+        let res = await wepy.getUserInfo()
+
+        let authResponse = await api.login(res.userInfo)
+
+        // 登录成功返回上一页
+        if (authResponse.statusCode === 201) {
+          wepy.navigateBack()
+        }
+      }
+    } catch (error) {
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  methods = {
+    handleModal() {
+      this.modal_show = false
+    }
+  };
+}
+</script>
+
+<style>
+page {
+  height: 100%;
+}
+.auth-container {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.logo {
+  display: flex;
+  flex: 3;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.logo .logo-img {
+  margin-bottom: 50rpx;
+  width: 100rpx;
+  height: 100rpx;
+}
+
+.logo-title {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo-text {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.auth-content {
+  display: flex;
+  flex: 3;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-button {
+  display: flex;
+  flex: 2;
+  justify-content: center;
+  align-items: center;
+}
+</style>

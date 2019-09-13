@@ -1,0 +1,561 @@
+<template>
+  <view
+    class="cu-card dynamic padding-bottom-xl"
+    wx:if="{{isLoading}}"
+  >
+    <view class="cu-item shadow">
+      <view class="cu-list menu-avatar">
+        <view class="cu-item">
+          <view
+            class="cu-avatar round lg"
+            style="background-image:url({{content.authorPic || picUrl}});"
+          ></view>
+          <view class="content flex-sub">
+            <view class="text-grey">{{content.authorName}}</view>
+            <view class="text-gray text-sm flex justify-between">
+              {{content.created_at_diff}}
+              <view class="text-gray text-sm">
+                <text class="cuIcon-attentionfill margin-lr-xs"></text> {{content.views}}
+                <text class="cuIcon-appreciatefill margin-lr-xs {{isLike ? 'text-red' : ''}}"></text> {{content.likes}}
+                <text class="cuIcon-messagefill margin-lr-xs"></text> {{content.commentsNum}}
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="grid flex-sub padding-lr col-1">
+        <view
+          class="bg-img only-img}}"
+          style="background-image:url({{content.picUrl || picUrl}});"
+        >
+        </view>
+      </view>
+      <!--引入wxml模版-->
+      <import src="../../towxml/entry.wxml" />
+      <template
+        is="entry"
+        data="{{...article}}"
+      > </template>
+      <view
+        class="cu-list menu-avatar comment solids-top"
+        wx:if="{{comments.length > 0}}"
+      >
+        <repeat
+          for="{{comments}}"
+          wx:key="coid"
+          index="index"
+          item="comment"
+        >
+          <view class="cu-item">
+            <view
+              class="cu-avatar round"
+              style="background-image:url({{comment.authorImg || picUrl}});"
+            ></view>
+            <view class="content">
+              <view
+                @tap="handleReplyOther({{comment.coid}}, {{comment.author}})"
+                class="text-grey"
+              >{{comment.author}}</view>
+              <view
+                @tap="handleReplyOther({{comment.coid}}, {{comment.author}})"
+                class="text-gray text-content text-df"
+              >
+                {{comment.text}}
+              </view>
+              <view
+                class="bg-grey padding-sm radius margin-top-sm  text-sm"
+                wx:if="{{comment.replays}}"
+              >
+                <repeat
+                  for="{{comment.replays}}"
+                  key="coid"
+                  index="index"
+                  item="replay"
+                >
+
+                  <view
+                    @tap="handleReplyOther({{replay.coid}}, {{replay.author}})"
+                    class="flex"
+                  >
+                    <view><text class="text-mauve">{{replay.author}}</text>回复<text class="text-mauve">{{replay.parentItem.author}}：</text></view>
+                    <view class="flex-sub">{{replay.text}}</view>
+                  </view>
+
+                </repeat>
+              </view>
+              <view class="margin-top-sm flex justify-between">
+                <view class="text-gray text-df">{{comment.created_at_diff}}</view>
+              </view>
+            </view>
+          </view>
+        </repeat>
+      </view>
+    </view>
+    <view class="cu-bar input show-reply">
+      <view
+        class="cu-avatar round"
+        style="background-image:url({{user.avatarUrl || picUrl}});"
+      ></view>
+      <textarea
+        value="{{showReply.text}}"
+        class='solid'
+        maxlength="300"
+        bindinput="handleInputTextarea"
+        cursor-spacing="10"
+        focus="{{focus}}"
+        fixed
+        auto-height
+      ></textarea>
+      <view class="action">
+        <text
+          class="{{isLike ? 'cuIcon-appreciatefill text-red' : 'cuIcon-appreciate'}}"
+          bindtap="handleLike"
+        ></text>
+      </view>
+      <view class="action">
+        <text
+          class="cuIcon-forward"
+          wx:if="{{isShare}}"
+        ></text>
+      </view>
+      <view class="action">
+        <text
+          class="cuIcon-share"
+          wx:if="{{isShare}}"
+        ></text>
+      </view>
+      <button
+        class="cu-btn round sm line-blue"
+        bindtap="handleCreateReply"
+      >回复</button>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from 'wepy'
+import api from '@/utils/api'
+import util from '@/utils/util'
+import Towxml from 'towxml'
+import { connect } from 'wepy-redux'
+
+@connect({
+  // 是否回复状态
+  is_reply(state) {
+    return state.reply.is_reply
+  },
+
+  // 是否点赞状态
+  liked(state) {
+    return state.liked.liked
+  }
+})
+export default class Show extends wepy.page {
+  config = {
+    navigationBarTitleText: '文章详情'
+  };
+  data = {
+    // 文章 cid
+    cid: 1,
+
+    // 文章数据
+    content: null,
+
+    // 分类数据
+    category: null,
+
+    // 标签数据
+    tags: null,
+
+    // 评论数据
+    comments: null,
+
+    // 当前登录用户
+    user: null,
+
+    // 默认图片
+    picUrl: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big10006.jpg',
+
+    // 是否加载
+    isLoading: false,
+
+    // 是否点赞
+    isLikeLoading: false,
+
+    // 是否回复框获取焦点
+    focus: false,
+
+    // 回复数据
+    showReply: {
+      coid: 0,
+      text: null,
+      author: null
+    },
+
+    // 是否配置允许转发
+    isShare: false,
+
+    // 用户是否点赞
+    isLike: false,
+
+    // towxml
+    article: ''
+  };
+
+  /**
+   * 获取文章数据
+   * @param number id 文章cid
+   */
+  async getContent(id) {
+    try {
+      this.isLoading = false
+
+      let contentResponse = await api.request({
+        url: 'get_cid_content',
+        data: {
+          cid: id
+        }
+      })
+
+      if (contentResponse.statusCode === 200) {
+        let { content, category, tags, comments } = contentResponse.data.data
+
+        // 设置导航栏名称
+        wepy.setNavigationBarTitle({ title: content.title })
+
+        // 格式化 updated_at
+        content.created_at_diff = util.diffForHumans(content.created)
+        comments.forEach(function(reply) {
+          reply.created_at_diff = util.diffForHumans(reply.created)
+        })
+
+        // 设置MarkDown
+        let towxml = new Towxml()
+        let data = towxml.toJson(content.text, 'markdown')
+        data.theme = 'light'
+        this.article = data
+
+        // 设置相关参数
+        this.content = content
+        this.category = category
+        this.tags = tags
+        this.comments = comments
+        this.isLoading = true
+        this.$apply()
+      }
+
+      // 如果文章不存在 则返回
+      if (contentResponse.statusCode === 404) {
+        wepy.navigateBack()
+      }
+
+      return contentResponse
+    } catch (err) {
+      console.log(err)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  async onLoad(options) {
+    this.cid = options.cid
+    await this.getContent(options.cid)
+
+    // 获取当前登录用户信息
+    this.user = await this.$parent.getCurrentUser()
+
+    // 如果登录则获取是否点赞
+    if (this.user) {
+      this.isLiked()
+    }
+    this.$apply()
+  }
+
+  async onShow() {
+    if (!this.user) {
+      console.log(wepy.$store.getState())
+      // 获取当前登录用户
+      this.user = await this.$parent.getCurrentUser()
+
+      // 如果处理特殊状态（回复、点赞) 则进行相关处理
+      if (this.user && (this.is_reply || this.liked)) {
+        // 回复状态处理
+        if (this.is_reply) {
+          await this.createComment()
+          wepy.$store.dispatch({
+            type: 'SETREPLY',
+            payload: { is_reply: false }
+          })
+        }
+
+        // 点赞状态处理
+        if (this.liked) {
+          await this.updateLike()
+          wepy.$store.dispatch({
+            type: 'SETLIKED',
+            payload: { liked: false }
+          })
+        }
+      } else {
+        // 如果未授权则修改点赞按钮状态，允许再次点赞
+        this.isLikeLoading = false
+      }
+      this.$apply()
+    }
+  }
+
+  /**
+   * 新增评论
+   */
+  async createComment() {
+    try {
+      let data = {
+        cid: this.cid,
+        author: this.user.nickname,
+        text: this.showReply.text,
+        coid: this.showReply.coid,
+        authorImg: this.user.avatarUrl
+      }
+
+      // 如果不是一级评论，则需去除 内容前的 @user:
+      if (this.showReply.coid !== 0) {
+        data.text = data.text.replace('@' + this.showReply.author + '：', '')
+      }
+
+      // 请求新增回复接口
+      let createResponse = await api.authRequest({
+        url: 'add_comment',
+        method: 'POST',
+        data
+      })
+
+      // 提示发布成功，并重置回复数据
+      if (createResponse.statusCode === 201) {
+        wepy.showModal({
+          title: '回复成功',
+          content: '回复成功，管理员审核后即可展示',
+          showCancel: false
+        })
+
+        this.showReply = {
+          coid: 0,
+          text: null,
+          author: null
+        }
+        this.$apply()
+      }
+    } catch (error) {
+      console.log(error)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  /**
+   * 是否点赞
+   */
+  async isLiked() {
+    try {
+      let isLikeResponse = await api.authRequest({
+        url: 'get_user_like',
+        data: {
+          cid: this.cid
+        }
+      })
+      this.isLike = isLikeResponse.data.data.is_like
+      this.$apply()
+    } catch (error) {
+      console.log(error)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  /**
+   * 更新点赞状态
+   */
+  async updateLike() {
+    try {
+      let isLikeResponse = await api.authRequest({
+        url: 'update_user_like',
+        data: {
+          cid: this.cid,
+          liked: this.isLike ? 'false' : 'true'
+        }
+      })
+      this.isLike = isLikeResponse.data.data.is_like
+
+      // 更新当前页面点赞数据
+      this.content.likes = isLikeResponse.data.data.is_like
+        ? parseInt(this.content.likes) + 1
+        : parseInt(this.content.likes) - 1
+      this.isLikeLoading = false
+      wepy.showToast({
+        title: isLikeResponse.data.data.is_like ? '点赞成功' : '取消成功',
+        icon: 'none'
+      })
+      this.$apply()
+    } catch (error) {
+      console.log(error)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  methods = {
+    /**
+     * 实时获取输入框数据
+     *
+     * 若删除内容中的 @user: 则对内容进行清除，并对回复数据重置
+     */
+    handleInputTextarea(e) {
+      this.showReply.text = e.detail.value
+      this.focus = true
+      if (
+        this.showReply.author &&
+        e.detail.value.indexOf('@' + this.showReply.author + '：') !== 0
+      ) {
+        this.showReply = {
+          coid: 0,
+          text: null,
+          author: null
+        }
+      }
+    },
+
+    /**
+     * 点击回复
+     */
+    async handleCreateReply() {
+      if (
+        !this.showReply.text ||
+        this.showReply.text === '@' + this.showReply.author + '：'
+      ) {
+        wepy.showToast({
+          title: '请填写内容',
+          icon: 'none',
+          duration: 2000
+        })
+
+        return null
+      }
+
+      // 是否登录，未登录则设置当前状态为 回复状态，并跳转到登录页
+      if (!this.$parent.isLogin()) {
+        wepy.$store.dispatch({
+          type: 'SETREPLY',
+          payload: { is_reply: true }
+        })
+        this.$parent.checkLogin()
+        return null
+      }
+
+      // 执行新增回复
+      this.createComment()
+    },
+
+    /**
+     * 点击User，实现非一级回复
+     */
+    handleReplyOther(coid, author, e) {
+      let oldText = null
+      if (this.showReply.author) {
+        oldText = '@' + this.showReply.author + '：'
+      }
+      this.showReply.coid = coid
+      this.showReply.author = author
+      let text = '@' + author + '：'
+      if (oldText) {
+        this.showReply.text = this.showReply.text.replace(oldText, text)
+      } else {
+        this.showReply.text = this.showReply.text
+          ? text + this.showReply.text
+          : text
+      }
+
+      this.focus = true
+    },
+
+    /**
+     * 点赞
+     */
+    async handleLike() {
+      if (this.isLikeLoading) {
+        return null
+      }
+
+      this.isLikeLoading = true
+
+      // 是否登录，未登录则设置当前状态为 点赞状态，并跳转到登录页
+      if (!this.$parent.isLogin()) {
+        wepy.$store.dispatch({
+          type: 'SETLIKED',
+          payload: { liked: true }
+        })
+        this.$parent.checkLogin()
+        return null
+      }
+
+      await this.updateLike()
+      this.$apply()
+    }
+  };
+
+  /**
+   * 转发功能实现，默认设置为当前文章 Title 及 picUrl
+   */
+  onShareAppMessage(res) {
+    return {
+      title: this.content.title,
+      path: 'pages/content/show?cid=' + this.cid,
+      imageUrl: this.content.picUrl || this.picUrl,
+      success: function(res) {
+        // 转发成功
+        console.log(res)
+      },
+      fail: function(res) {
+        // 转发失败
+        console.log(res)
+      }
+    }
+  }
+}
+</script>
+
+<style>
+@import '../../towxml/style/main.wxss';
+@import '../../towxml/style/theme/light.wxss';
+@import '../../towxml/style/theme/dark.wxss';
+
+.show-reply {
+  width: 100%;
+  position: fixed;
+  bottom: 0px;
+}
+
+.show-reply textarea {
+  flex: 1;
+  min-height: 64rpx;
+  font-size: 30rpx;
+  overflow: initial;
+  margin: 0 20rpx;
+  line-height: 64rpx;
+}
+
+.cu-bar.input .action {
+  margin-left: 8rpx;
+  margin-right: 2rpx;
+}
+
+.cu-bar.input .action [class*='cuIcon-'] {
+  font-size: 36rpx;
+}
+</style>

@@ -1,0 +1,219 @@
+<template>
+  <view class="bg-white">
+    <view class="cu-bar search">
+      <view class="search-form round">
+        <text class="cuIcon-search"></text>
+        <input
+          type="text"
+          placeholder="搜索"
+          confirm-type="search"
+          bindinput="search"
+        />
+      </view>
+    </view>
+    <scroll-view
+      scroll-x
+      class="bg-white nav padding-bottom"
+      wx:if="{{!search}}"
+    >
+      <view class="flex text-center">
+        <view
+          class="cu-item flex-sub {{'view'==TabOrder?'text-balck cur':''}}"
+          bindtap="tabSelect"
+          data-order="view"
+        >
+          <text class="cuIcon-camerafill"></text> 浏览量
+        </view>
+        <view
+          class="cu-item flex-sub {{'like'==TabOrder?'text-balck cur':''}}"
+          bindtap="tabSelect"
+          data-order="like"
+        >
+          <text class="cuIcon-clothesfill"></text> 点赞数
+        </view>
+        <view
+          class="cu-item flex-sub {{'comment'==TabOrder?'text-balck cur':''}}"
+          bindtap="tabSelect"
+          data-order="comment"
+        >
+          <text class="cuIcon-upstagefill"></text> 评论数
+        </view>
+      </view>
+    </scroll-view>
+    <view
+      class="cu-card case"
+      wx:if="{{!search}}"
+    >
+      <view class="cu-list menu-avatar">
+        <repeat
+          for="{{contents}}"
+          key="cid"
+          index="index"
+          item="content"
+        >
+          <navigator
+            url="/pages/content/show?cid={{ content.cid }}"
+            class="cu-item shadow solid-bottom"
+          >
+            <view class="cu-avatar round lg bg-cyan light">{{index + 1}}</view>
+            <view class="content flex-sub">
+              <view class="text-grey">{{content.title}}</view>
+              <view class="text-gray text-sm flex justify-between">
+                {{content.created_at_diff}}
+                <view class="text-gray text-sm">
+                  <text class="cuIcon-attentionfill margin-lr-xs"></text> {{content.views}}
+                  <text class="cuIcon-appreciatefill margin-lr-xs"></text> {{content.likes}}
+                  <text class="cuIcon-messagefill margin-lr-xs"></text> {{content.commentsNum}}
+                </view>
+              </view>
+            </view>
+          </navigator>
+        </repeat>
+      </view>
+    </view>
+
+    <!-- 搜索栏 -->
+    <view
+      class="cu-card case"
+      wx:if="{{search}}"
+    >
+      <view
+        class="cu-load over}}"
+        wx:if="{{ search && searchList.length < 1 }}"
+      ></view>
+      <view class="cu-list menu-avatar">
+        <repeat
+          for="{{searchList}}"
+          key="cid"
+          index="index"
+          item="content"
+        >
+          <navigator
+            url="/pages/content/show?cid={{ content.cid }}"
+            class="cu-item shadow solid-bottom"
+          >
+            <view
+              class="cu-avatar round lg"
+              style="background-image:url({{content.authorPic || picUrl}});"
+            ></view>
+            <view class="content flex-sub">
+              <view class="text-grey">{{content.title}}</view>
+              <view class="text-gray text-sm flex justify-between">
+                {{content.created_at_diff}}
+              </view>
+            </view>
+          </navigator>
+        </repeat>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from 'wepy'
+import util from '@/utils/util'
+import api from '@/utils/api'
+
+export default class Rankling extends wepy.page {
+  data = {
+    TabOrder: 'view',
+    contents: [],
+    search: '',
+    searchList: [],
+    _lastTime: null,
+
+    // 是否在加载中
+    isLoading: false,
+    // 默认图片
+    picUrl: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big10006.jpg'
+  };
+
+  onLoad() {
+    this.getContent()
+  }
+
+  // 节流函数 防止重复点击
+  throttle(fn, gapTime) {
+    let _nowTime = new Date().getTime()
+    if (_nowTime - this._lastTime > gapTime || !this._lastTime) {
+      fn(this)
+      this._lastTime = _nowTime
+    }
+    this.$apply()
+  }
+
+  async searchContent(that) {
+    try {
+      let contentsResponse = await api.request({
+        url: 'search_contents',
+        data: {
+          title: that.search
+        }
+      })
+
+      if (contentsResponse.statusCode === 200) {
+        let contents = contentsResponse.data.data
+
+        // 格式化updated_at
+        contents.forEach(function(content) {
+          content.created_at_diff = util.diffForHumans(content.created)
+        })
+
+        that.searchList = contents
+        that.$apply()
+      }
+      return contentsResponse
+    } catch (error) {
+      console.log(error)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  async getContent() {
+    try {
+      let contentsResponse = await api.request({
+        url: 'get_ranking',
+        data: {
+          order: this.TabOrder
+        }
+      })
+
+      if (contentsResponse.statusCode === 200) {
+        let contents = contentsResponse.data.data
+
+        // 格式化updated_at
+        contents.forEach(function(content) {
+          content.created_at_diff = util.diffForHumans(content.created)
+        })
+
+        this.contents = contents
+        this.$apply()
+      }
+      return contentsResponse
+    } catch (error) {
+      console.log(error)
+      wepy.showModal({
+        title: '提示',
+        content: '服务器错误，请联系管理员'
+      })
+    }
+  }
+
+  methods = {
+    tabSelect(e) {
+      this.TabOrder = e.currentTarget.dataset.order
+      this.getContent()
+    },
+    search(e) {
+      this.search = e.detail.value
+      this.throttle(this.searchContent, 1000)
+    }
+  };
+}
+</script>
+
+<style>
+</style>

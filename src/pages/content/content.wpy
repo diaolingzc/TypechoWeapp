@@ -1,0 +1,65 @@
+<template>
+  <view class="bg-white">
+    <!-- 使用 toplist requestData 数据 -->
+    <toplist :syncData.sync="topListsData"></toplist>
+    <!-- 使用 contentslist requestData 数据 -->
+    <contentslist :syncData.sync="contentsData"></contentslist>
+  </view>
+</template>
+
+<script>
+import wepy from 'wepy'
+import contentsList from './components/contentsList'
+import topList from './components/topList'
+
+export default class Content extends wepy.page {
+  config = {
+    enablePullDownRefresh: true
+  };
+  data = {
+    topListsData: {},
+    contentsData: {}
+  };
+
+  components = {
+    contentslist: contentsList,
+    toplist: topList
+  };
+
+  onLoad() {
+    // 调用组件的 reload 方法
+    this.$invoke('toplist', 'reload')
+    this.$invoke('contentslist', 'reload')
+  }
+
+  async onPullDownRefresh() {
+    // 调用组件的 reload 方法
+    await this.$invoke('toplist', 'reload')
+    await this.$invoke('contentslist', 'reload')
+    wepy.stopPullDownRefresh()
+  }
+
+  onReachBottom() {
+    // 调用组件的 loadMore 方法
+    this.$invoke('contentslist', 'loadMore')
+  }
+
+  onShareAppMessage(res) {
+    return {
+      title: '种花家的云璃ღ',
+      path: 'pages/content/content',
+      success: function(res) {
+        // 转发成功
+        console.log(res)
+      },
+      fail: function(res) {
+        // 转发失败
+        console.log(res)
+      }
+    }
+  }
+}
+</script>
+
+<style>
+</style>
